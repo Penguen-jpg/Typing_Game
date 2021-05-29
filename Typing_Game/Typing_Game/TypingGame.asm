@@ -10,33 +10,82 @@ BUFFER_SIZE = 1000 ;buffer的大小
 
 .data
 ;讀檔用變數
-fileName BYTE "data.txt", 0		;檔名
-fileHandle Handle ?				;讀取檔案用
-buffer BYTE 100 DUP(0)			;儲存檔案內容
-temp BYTE 0						;儲存讀出的字元
+EASY_FILE_NAME BYTE "data1.txt", 0		;簡單難度的檔名
+MEDIUM_FILE_NAME BYTE "data2.txt", 0	;中等難度的檔名
+HARD_FILE_NAME BYTE "data3.txt", 0		;困難難度的檔名
+fileName BYTE 100 DUP(0)				;檔名
+fileHandle Handle ?						;讀取檔案用
+buffer BYTE 100 DUP(0)					;儲存檔案內容
+temp BYTE 0								;儲存讀出的字元
 
 ;遊戲用變數
-input BYTE BUFFER_SIZE DUP(0)	;使用者輸入		
-SECOND_FACTOR WORD 1000			;用來換成秒
-startTime DWORD ?				;開始時間
-counter DWORD 0					;記錄通過的關卡數
-health DWORD 5h					;玩家血量
-lostHealth DWORD 0				;失去的血量
-wordLength	DWORD 0					;單字長度
+input BYTE BUFFER_SIZE DUP(0)			;使用者輸入		
+SECOND_FACTOR WORD 1000					;用來換成秒
+startTime DWORD ?						;開始時間
+counter DWORD 0							;記錄通過的關卡數
+health DWORD 5h							;玩家血量
+lostHealth DWORD 0						;失去的血量
+wordLength	DWORD 0						;單字長度
 
 .code
 main PROC
+	;選擇難度
+	choose_difficulty:
+		;清畫面
+		call Clrscr
+
+		;畫出選單
+		call DrawMenu
+
+		;輸入選項
+		call ReadInt
+
+		;檢查是否在正確範圍內，不符合就重新輸入
+		cmp eax, 1
+		jb choose_difficulty
+		cmp eax, 3
+		ja choose_difficulty
+
+		cmp eax, 1
+		je open_file1
+		cmp eax, 2
+		je open_file2
+		cmp eax, 3
+		je open_file3
+		
+		;複製檔名用
+		mov esi, 0
+		mov edi, 0
+
+		;根據選擇的難度選擇要開的檔案
+		open_file1:
+			;複製檔名給fileName
+			INVOKE Str_copy,
+				   ADDR EASY_FILE_NAME,
+				   ADDR fileName
+			jmp read_file
+		open_file2:
+			INVOKE Str_copy,
+				   ADDR MEDIUM_FILE_NAME,
+				   ADDR fileName
+			jmp read_file
+		open_file3:
+			INVOKE Str_copy,
+				   ADDR HARD_FILE_NAME,
+				   ADDR fileName
+			jmp read_file
 
 	;讀取檔案(題目)
-	mov edx, OFFSET fileName
-	call OpenInputFile
-	mov fileHandle, eax				;將eax內的Handle傳給fileHandle
+	read_file:
+		mov edx, OFFSET fileName
+		call OpenInputFile
+		mov fileHandle, eax				;將eax內的Handle傳給fileHandle
 
-	;檢查開檔是否有出錯
-	cmp eax, INVALID_HANDLE_VALUE	;檢查目前的Handle是否有效
-	jne file_ok						;有效就跳到file_ok
-	mWrite <"無法開啟檔案",0dh,0ah> ;錯誤訊息
-	;jmp quit						;無效就跳到quit\
+		;檢查開檔是否有出錯
+		cmp eax, INVALID_HANDLE_VALUE	;檢查目前的Handle是否有效
+		jne file_ok						;有效就跳到file_ok
+		mWrite <"無法開啟檔案",0dh,0ah> ;錯誤訊息
+		jmp quit						;無效就跳到quit
 
 	;讀檔成功
 	file_ok:
@@ -169,7 +218,22 @@ main PROC
 		exit				;結束程式
 
 	;procedures
+	;-------------------------------------------------------------
+	; DrawMenu PROC
+	;
+	; 畫出選單
+	; Receives: 沒有
+	; Returns: 不回傳
+	;-------------------------------------------------------------
 
+	DrawMenu PROC
+		mWrite <"Typing Game",0dh,0ah,0dh,0ah>
+		mWrite <"1:簡單",0dh,0ah,0dh,0ah>
+		mWrite <"2:中等",0dh,0ah,0dh,0ah>
+		mWrite <"3:困難",0dh,0ah,0dh,0ah>
+		mWrite "請輸入選項:"
+		ret
+	DrawMenu ENDP
 
 	;-------------------------------------------------------------
 	; SetTitleColor PROC
@@ -228,7 +292,7 @@ main PROC
 		
 	DrawPlayer PROC
 		push ecx			;暫存原本ecx的值
-		mGotoxy 70, 1		;將游標移到(第50行 第2列)
+		mGotoxy 70, 1		;將游標移到(第70行 第1列)
 		mWrite "玩家血量:"
 		cmp eax, 0	
 		je draw_remaining_health ;如果沒有失去血量，就直接畫剩餘血量
