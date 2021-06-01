@@ -10,13 +10,13 @@ BUFFER_SIZE = 1000 ;buffer的大小
 
 .data
 ;讀檔用變數
-EASY_FILE_NAME BYTE "data1.txt", 0		;簡單難度的檔名
-MEDIUM_FILE_NAME BYTE "data2.txt", 0	;中等難度的檔名
-HARD_FILE_NAME BYTE "data3.txt", 0		;困難難度的檔名
+EASY_FILE_NAME BYTE "easy.txt", 0		;簡單難度的檔名
+NORMAL_FILE_NAME BYTE "normal.txt", 0	;普通難度的檔名
+HARD_FILE_NAME BYTE "hard.txt", 0		;困難難度的檔名
 fileName BYTE 100 DUP(0)				;檔名
 fileHandle Handle ?						;讀取檔案用
 buffer BYTE 100 DUP(0)					;儲存檔案內容
-temp BYTE 0								;儲存讀出的字元
+temp BYTE 0								;儲存讀出的字元					
 
 ;遊戲用變數
 input BYTE BUFFER_SIZE DUP(0)			;使用者輸入		
@@ -26,11 +26,12 @@ counter DWORD 0							;記錄通過的關卡數
 health DWORD 5h							;玩家血量
 lostHealth DWORD 0						;失去的血量
 wordLength	DWORD 0						;單字長度
+again BYTE 2 DUP(0)						;檢查是否要重新開始
 
 .code
 main PROC
-	;選擇難度
-	choose_difficulty:
+	;選單
+	menu:
 		;清畫面
 		call Clrscr
 
@@ -42,9 +43,9 @@ main PROC
 
 		;檢查是否在正確範圍內，不符合就重新輸入
 		cmp eax, 1
-		jb choose_difficulty
+		jb menu
 		cmp eax, 3
-		ja choose_difficulty
+		ja menu
 
 		cmp eax, 1
 		je open_file1
@@ -66,7 +67,7 @@ main PROC
 			jmp read_file
 		open_file2:
 			INVOKE Str_copy,
-				   ADDR MEDIUM_FILE_NAME,
+				   ADDR NORMAL_FILE_NAME,
 				   ADDR fileName
 			jmp read_file
 		open_file3:
@@ -99,7 +100,7 @@ main PROC
 
 		;遊戲開始
 		game_start:
-			cmp counter, 10
+			cmp counter, 25
 			jae game_end				;如果通關完成就跳到game_end
 
 			;初始化esi及取回fileHandle
@@ -148,8 +149,6 @@ main PROC
 				call DrawPlayer
 				pop ebx				;取出原本ebx的值
 				pop eax				;取出原本eax的值
-				cmp health, 0		;如果血量為0，跳到game_end
-				je game_end
 
 			;讀取輸入
 			read_input:
@@ -180,10 +179,8 @@ main PROC
 				call Crlf
 				;mWrite <"輸入錯誤",0dh,0ah>
 				call Crlf
-				;inc lostHealth
-				;dec health
-				cmp health, 0	
-				je draw_player	;如果血量為0，就跳到draw_player畫出最後一次血量
+				inc lostHealth
+				dec health
 
 			;清空buffer，避免與下次儲存的單字衝突
 			clear_buffer:
@@ -193,10 +190,15 @@ main PROC
 					mov buffer[edi], 0
 					inc edi
 				loop L1
+				cmp health, 0	
+				je dead					;如果血量為0就跳到dead
 				jmp game_start
 				
-		;遊戲結束
-		game_end:
+		;遊戲結束(還有剩餘血量)
+		game_end:	
+			;清畫面
+			call Clrscr
+
 			;取得開始到結束的時間
 			mWrite "總共花費"
 			call GetMseconds
@@ -209,12 +211,36 @@ main PROC
 			call WriteDec
 
 			;輸出單位
-			mWrite <"秒",0dh,0ah>
+			mWrite <"秒",0dh,0ah,0dh,0ah>
+
+			jmp restart		;跳到restart
+
+		dead:
+			;清畫面
+			call Clrscr
+
+			mWrite <"失敗",0dh,0ah,0dh,0ah>
+
+
+		;詢問是否要重新開始
+		restart:
+			mWrite <"重新開始(Y/N)?",0dh,0ah>	
+			mov edx, OFFSET again
+			mov ecx, SIZEOF again
+			call ReadString				;輸入是否要重新開始
+			mov eax, fileHandle			;取回fileHandle
+			call CloseFile				;關檔(否則要重新時無法再開檔)
+			cmp again[0], 'Y'
+			jne quit
+			
+			;初始化
+			mov counter, 0
+			mov health, 5h
+			mov lostHealth, 0
+			jmp menu				;跳回選單
 
 	;讀檔失敗或程式執行結束
 	quit:
-		mov eax, fileHandle	;取回fileHandle
-		call CloseFile		;關檔
 		exit				;結束程式
 
 	;procedures
@@ -274,6 +300,7 @@ main PROC
 	; Receives:	沒有
 	; Returns: 不回傳
 	;-------------------------------------------------------------
+
 	SetNormalTextColor PROC
 		push eax			;暫存原本eax的值
 		mov eax, white+(black*16)
@@ -303,9 +330,6 @@ main PROC
 			L1:
 				mWrite "□"
 			loop L1
-
-		cmp ebx, 0			;如果剩餘血量為0，就跳到end_draw
-		je end_draw
 
 		;畫出剩餘血量
 		draw_remaining_health:
