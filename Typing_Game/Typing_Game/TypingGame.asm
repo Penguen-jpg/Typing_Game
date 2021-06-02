@@ -1,10 +1,6 @@
 INCLUDE irvine32.inc
 INCLUDE macros.inc
 
-;下次目標
-;調整游標位置(https://stackoverflow.com/questions/40940029/assembly-8086-cursor-placement)
-
-
 ;定義常數
 BUFFER_SIZE = 1000 ;buffer的大小
 
@@ -14,13 +10,13 @@ EASY_FILE_NAME BYTE "easy.txt", 0		;簡單難度的檔名
 NORMAL_FILE_NAME BYTE "normal.txt", 0	;普通難度的檔名
 HARD_FILE_NAME BYTE "hard.txt", 0		;困難難度的檔名
 fileName BYTE 100 DUP(0)				;檔名
-fileHandle Handle ?						;讀取檔案用
+fileHandle Handle ?						;讀取/寫入檔案用
 buffer BYTE 100 DUP(0)					;儲存檔案內容
 temp BYTE 0								;儲存讀出的字元					
 
 ;遊戲用變數
 input BYTE BUFFER_SIZE DUP(0)			;使用者輸入		
-SECOND_FACTOR WORD 1000					;用來換成秒
+SECOND_FACTOR WORD 1000					;用來將毫秒換成秒
 startTime DWORD ?						;開始時間
 counter DWORD 0							;記錄通過的關卡數
 health DWORD 5h							;玩家血量
@@ -101,7 +97,7 @@ main PROC
 		;遊戲開始
 		game_start:
 			cmp counter, 25
-			jae game_end				;如果通關完成就跳到game_end
+			je game_end				;如果通關完成就跳到game_end
 
 			;初始化esi及取回fileHandle
 			init:
@@ -136,9 +132,16 @@ main PROC
 			display_problem:
 				call SetTitleColor
 				mWrite <"<題目>",0dh,0ah>
-				call SetNormalTextColor
+				call SetDefaultTextColor
 				mov edx, OFFSET buffer
 				call WriteString
+
+			;顯示目前題號
+			show_counter:
+				push eax		;暫存原本eax的值
+	       		mov eax,counter	;傳參數
+				call ShowCounter
+				pop eax			;取出原本eax的值
 
 			;畫出血量及人物
 			draw_player:
@@ -154,7 +157,7 @@ main PROC
 			read_input:
 				call SetTitleColor
 				mWrite <"輸入區:",0dh,0ah>
-				call SetNormalTextColor
+				call SetDefaultTextColor
 				mov edx, OFFSET input
 				mov ecx, BUFFER_SIZE
 				mov esi, 0
@@ -224,14 +227,26 @@ main PROC
 
 		;詢問是否要重新開始
 		restart:
-			mWrite <"重新開始(Y/N)?",0dh,0ah>	
-			mov edx, OFFSET again
-			mov ecx, SIZEOF again
-			call ReadString				;輸入是否要重新開始
-			mov eax, fileHandle			;取回fileHandle
-			call CloseFile				;關檔(否則要重新時無法再開檔)
-			cmp again[0], 'Y'
-			jne quit
+			mov eax, fileHandle				;取回fileHandle
+			call CloseFile					;關檔(否則要重新時無法再開檔)
+			jmp restart_input				;跳到restart_input
+
+			;輸入Y和N以外的字元
+			restart_input_fail:
+				;清畫面
+				call Clrscr
+				mWrite <"輸入錯誤，請輸入Y(Yes)或者N(No)",0dh,0ah>
+				
+			;輸入是否要重新開始
+			restart_input:
+				mWrite <"重新開始(Y/N)?",0dh,0ah>	
+				mov edx, OFFSET again
+				mov ecx, SIZEOF again
+				call ReadString				;輸入是否要重新開始
+				cmp again[0], 'N'
+				je quit
+				cmp again[0], 'Y'
+				jne restart_input_fail		;輸入錯誤就跳到restart_input_fail
 			
 			;初始化
 			mov counter, 0
@@ -270,10 +285,10 @@ main PROC
 	;-------------------------------------------------------------
 
 	SetTitleColor PROC
-		push eax			;暫存原本eax的值
+		push eax					;暫存原本eax的值
 		mov eax, red+(lightCyan*16)
 		call SetTextColor	
-		pop eax		;取出原本eax的值
+		pop eax						;取出原本eax的值
 		ret
 	SetTitleColor ENDP
 
@@ -286,28 +301,44 @@ main PROC
 	;-------------------------------------------------------------
 
 	SetHealthColor PROC
-		push eax			;暫存原本eax的值
+		push eax				;暫存原本eax的值
 		mov eax, red+(black*16)
 		call SetTextColor
-		pop eax				;取出原本eax的值
+		pop eax					;取出原本eax的值
 		ret
 	SetHealthColor ENDP
 
 	;-------------------------------------------------------------
-	; SetNormalTextColor PROC
+	; SetDefaultTextColor PROC
 	;
 	; 將文字顏色調回原本的白字黑底
 	; Receives:	沒有
 	; Returns: 不回傳
 	;-------------------------------------------------------------
 
-	SetNormalTextColor PROC
-		push eax			;暫存原本eax的值
+	SetDefaultTextColor PROC
+		push eax					;暫存原本eax的值
 		mov eax, white+(black*16)
 		call SetTextColor
-		pop eax				;取出原本eax的值
+		pop eax						;取出原本eax的值
 		ret
-	SetNormalTextColor ENDP
+	SetDefaultTextColor ENDP
+
+	;-------------------------------------------------------------
+	; ShowCounter PROC
+	;
+	; 顯示目前題數
+	; Receives: eax = 目前題數
+	; Returns: 不回傳
+	;-------------------------------------------------------------
+
+	ShowCounter PROC
+		mGotoxy 50,1		;將游標移到(第50行 第一列)
+		mWrite "目前題數:"		
+	    call WriteDec
+		mWrite "/25"
+		ret
+	ShowCounter ENDP
 
 	;-------------------------------------------------------------
 	; DrawPlayer PROC
@@ -318,12 +349,12 @@ main PROC
 	;-------------------------------------------------------------
 		
 	DrawPlayer PROC
-		push ecx			;暫存原本ecx的值
-		mGotoxy 70, 1		;將游標移到(第70行 第1列)
+		push ecx					;暫存原本ecx的值
+		mGotoxy 70, 1				;將游標移到(第70行 第1列)
 		mWrite "玩家血量:"
 		cmp eax, 0	
-		je draw_remaining_health ;如果沒有失去血量，就直接畫剩餘血量
-		mov ecx, eax		;設定迴圈次數
+		je draw_remaining_health	;如果沒有失去血量，就直接畫剩餘血量
+		mov ecx, eax				;設定迴圈次數
 
 		;畫出損失的血量
 		draw_lost_health:
@@ -340,7 +371,7 @@ main PROC
 				mWrite "■"
 			loop L2
 				
-			call SetNormalTextColor
+			call SetDefaultTextColor
 
 		end_draw:
 			call Crlf			
