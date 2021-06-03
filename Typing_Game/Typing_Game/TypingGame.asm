@@ -2,7 +2,7 @@ INCLUDE irvine32.inc
 INCLUDE macros.inc
 
 ;定義常數
-BUFFER_SIZE = 1000 ;buffer的大小
+BUFFER_SIZE = 1000	;buffer的大小
 
 .data
 ;讀檔用變數
@@ -17,12 +17,15 @@ temp BYTE 0								;儲存讀出的字元
 ;遊戲用變數
 input BYTE BUFFER_SIZE DUP(0)			;使用者輸入		
 SECOND_FACTOR WORD 1000					;用來將毫秒換成秒
+PENALTY_TIME WORD 10					;答錯懲罰時間
 startTime DWORD ?						;開始時間
+lastTime DWORD ?						;上次答題時間
 counter DWORD 0							;記錄通過的關卡數
 health DWORD 5h							;玩家血量
 lostHealth DWORD 0						;失去的血量
 wordLength	DWORD 0						;單字長度
 again BYTE 2 DUP(0)						;檢查是否要重新開始
+errorCounter WORD 0						;記錄答錯次數
 
 .code
 main PROC
@@ -40,7 +43,7 @@ main PROC
 		;檢查是否在正確範圍內，不符合就重新輸入
 		cmp eax, 1
 		jb menu
-		cmp eax, 3
+		cmp eax, 4
 		ja menu
 
 		cmp eax, 1
@@ -49,6 +52,8 @@ main PROC
 		je open_file2
 		cmp eax, 3
 		je open_file3
+		cmp eax, 4
+		je show_rules
 		
 		;複製檔名用
 		mov esi, 0
@@ -71,6 +76,12 @@ main PROC
 				   ADDR HARD_FILE_NAME,
 				   ADDR fileName
 			jmp read_file
+		show_rules:
+			call ShowRules
+			call ReadInt				;讀取輸入
+			cmp eax, 1
+			je menu						;輸入為1就跳回menu
+			jmp show_rules				;輸入其他的就跳回show_rules
 
 	;讀取檔案(題目)
 	read_file:
@@ -93,6 +104,7 @@ main PROC
 		;紀錄開始時間
 		call GetMseconds
 		mov startTime, eax
+		mov lastTime, eax
 
 		;遊戲開始
 		game_start:
@@ -136,22 +148,39 @@ main PROC
 				mov edx, OFFSET buffer
 				call WriteString
 
+			;顯示上次答題時間
+			show_last_time:
+				push ebx			;暫存原本ebx的值
+				mGotoxy 30, 1		;將游標移到(第30行 第一列)
+				mWrite "上一題花了"
+				call GetMseconds	;取得目前時間
+				mov ebx, eax		;暫存目前時間
+				sub eax, lastTime	;算出距離答題上次過了多久
+
+				;轉換成秒(除以1000)
+				mov edx, 0
+				movzx ecx, SECOND_FACTOR
+				div ecx
+				call WriteDec
+
+				;輸出單位
+				mWrite "秒"
+
+				mov lastTime, ebx	;更新上次答題時間
+				pop ebx				;取出原本ebx的值
+
 			;顯示目前題號
 			show_counter:
-				push eax		;暫存原本eax的值
 	       		mov eax,counter	;傳參數
 				call ShowCounter
-				pop eax			;取出原本eax的值
 
 			;畫出血量及人物
 			draw_player:
-				push eax			;暫存原本eax的值
 				push ebx			;暫存原本ebx的值
 				mov eax, lostHealth	;傳參數
 				mov ebx, health		;傳參數
 				call DrawPlayer
 				pop ebx				;取出原本ebx的值
-				pop eax				;取出原本eax的值
 
 			;讀取輸入
 			read_input:
@@ -175,13 +204,14 @@ main PROC
 				call Crlf
 				;mWrite <"輸入正確",0dh,0ah>
 				call Crlf
-				jmp clear_buffer	;跳到clear_buffer
+				jmp clear_buffer		;跳到clear_buffer
 
 			;輸入錯誤
 			wrong:
 				call Crlf
 				;mWrite <"輸入錯誤",0dh,0ah>
 				call Crlf
+				inc errorCounter		;錯誤次數加1
 				inc lostHealth
 				dec health
 
@@ -203,7 +233,7 @@ main PROC
 			call Clrscr
 
 			;取得開始到結束的時間
-			mWrite "總共花費"
+			mWrite "總共花費 "
 			call GetMseconds
 
 			;轉換成秒(除以1000)
@@ -213,8 +243,16 @@ main PROC
 			div ecx
 			call WriteDec
 
+			;算出答錯懲罰時間
+			mov ax, errorCounter
+			mul PENALTY_TIME
+
+			;輸出懲罰時間
+			mWrite " + "
+			call WriteDec
+
 			;輸出單位
-			mWrite <"秒",0dh,0ah,0dh,0ah>
+			mWrite <" 秒",0dh,0ah,0dh,0ah>
 
 			jmp restart		;跳到restart
 
@@ -250,15 +288,17 @@ main PROC
 			
 			;初始化
 			mov counter, 0
+			mov errorCounter, 0
 			mov health, 5h
 			mov lostHealth, 0
-			jmp menu				;跳回選單
+			jmp menu						;跳回選單
 
 	;讀檔失敗或程式執行結束
 	quit:
 		exit				;結束程式
 
 	;procedures
+
 	;-------------------------------------------------------------
 	; DrawMenu PROC
 	;
@@ -272,9 +312,29 @@ main PROC
 		mWrite <"1:簡單",0dh,0ah,0dh,0ah>
 		mWrite <"2:中等",0dh,0ah,0dh,0ah>
 		mWrite <"3:困難",0dh,0ah,0dh,0ah>
+		mWrite <"4:遊戲說明",0dh,0ah,0dh,0ah>
 		mWrite "請輸入選項:"
 		ret
 	DrawMenu ENDP
+
+	;-------------------------------------------------------------
+	; ShowRules PROC
+	;
+	; 顯示規則
+	; Receives: 沒有
+	; Returns: 不回傳
+	;-------------------------------------------------------------
+
+	ShowRules PROC
+		;清畫面
+		call Clrscr	
+		mWrite <"1. 玩家有5格血，每答錯1題會扣1格",0dh,0ah,0dh,0ah>
+		mWrite <"2. 每答錯一次，通關時間增加10秒",0dh,0ah,0dh,0ah>
+		mWrite <"3. 在回答完25題前血量歸0的話，就算失敗",0dh,0ah,0dh,0ah>
+		mWrite <"輸入1以返回選單",0dh,0ah>
+		mWrite ">"
+		ret
+	ShowRules ENDP
 
 	;-------------------------------------------------------------
 	; SetTitleColor PROC
