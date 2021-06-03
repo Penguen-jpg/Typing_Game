@@ -12,7 +12,7 @@ HARD_FILE_NAME BYTE "hard.txt", 0		;困難難度的檔名
 fileName BYTE 100 DUP(0)				;檔名
 fileHandle Handle ?						;讀取/寫入檔案用
 buffer BYTE 100 DUP(0)					;儲存檔案內容
-temp BYTE 0								;儲存讀出的字元					
+temp BYTE ?								;儲存讀出的字元					
 
 ;遊戲用變數
 input BYTE BUFFER_SIZE DUP(0)			;使用者輸入		
@@ -25,7 +25,12 @@ health DWORD 5h							;玩家血量
 lostHealth DWORD 0						;失去的血量
 wordLength	DWORD 0						;單字長度
 again BYTE 2 DUP(0)						;檢查是否要重新開始
-errorCounter WORD 0						;記錄答錯次數
+errorCounter WORD 0					;記錄答錯次數
+totalTime DWORD 0						;記錄通關總時間
+difficulty BYTE ?						;記錄這次選的難度
+easyBestTime DWORD 9999					;簡單難度的最佳通關時間
+normalBestTime DWORD 9999				;普通難度的最佳通關時間
+hardBestTime DWORD 9999					;困難難度的最佳通關時間
 
 .code
 main PROC
@@ -43,7 +48,7 @@ main PROC
 		;檢查是否在正確範圍內，不符合就重新輸入
 		cmp eax, 1
 		jb menu
-		cmp eax, 4
+		cmp eax, 5
 		ja menu
 
 		cmp eax, 1
@@ -54,6 +59,8 @@ main PROC
 		je open_file3
 		cmp eax, 4
 		je show_rules
+		cmp eax, 5
+		je quit
 		
 		;複製檔名用
 		mov esi, 0
@@ -61,17 +68,24 @@ main PROC
 
 		;根據選擇的難度選擇要開的檔案
 		open_file1:
+			;紀錄難度
+			mov difficulty, 1
+
 			;複製檔名給fileName
 			INVOKE Str_copy,
 				   ADDR EASY_FILE_NAME,
 				   ADDR fileName
 			jmp read_file
 		open_file2:
+			mov difficulty, 2
+
 			INVOKE Str_copy,
 				   ADDR NORMAL_FILE_NAME,
 				   ADDR fileName
 			jmp read_file
 		open_file3:
+			mov difficulty, 3
+
 			INVOKE Str_copy,
 				   ADDR HARD_FILE_NAME,
 				   ADDR fileName
@@ -232,29 +246,102 @@ main PROC
 			;清畫面
 			call Clrscr
 
-			;取得開始到結束的時間
-			mWrite "總共花費 "
-			call GetMseconds
+			;顯示遊玩結果
+			show_result:
+				;根據難度選擇不同的輸出
+				mWrite "遊玩難度:"
+				cmp difficulty, 1
+				je print_easy
+				cmp difficulty, 2
+				je print_normal
+				cmp difficulty, 3
+				je print_hard
 
-			;轉換成秒(除以1000)
-			mov edx, 0
-			sub eax, startTime
-			movzx ecx, SECOND_FACTOR
-			div ecx
-			call WriteDec
+				;簡單難度
+				print_easy:
+					mWrite <"簡單",0dh,0ah,0dh,0ah>
+					mov ebx, easyBestTime	;將最佳時間存在ebx
+					jmp show_finish_time	;跳到show_finish_time
 
-			;算出答錯懲罰時間
-			mov ax, errorCounter
-			mul PENALTY_TIME
 
-			;輸出懲罰時間
-			mWrite " + "
-			call WriteDec
+				;中等難度
+				print_normal:
+					mWrite <"中等",0dh,0ah,0dh,0ah>
+					mov ebx, normalBestTime
+					jmp show_finish_time
 
-			;輸出單位
-			mWrite <" 秒",0dh,0ah,0dh,0ah>
+				;困難難度
+				print_hard:
+					mWrite <"困難",0dh,0ah,0dh,0ah>
+					mov ebx, hardBestTime
 
-			jmp restart		;跳到restart
+				;顯示完成時間
+				show_finish_time:
+					;取得開始到結束的時間
+					mWrite "總共花費 "
+					call GetMseconds
+
+					;轉換成秒(除以1000)
+					mov edx, 0
+					sub eax, startTime
+					movzx ecx, SECOND_FACTOR
+					div ecx
+					call WriteDec
+					mov totalTime, eax				;儲存總時間的第一部分
+
+					mWrite " + "
+
+					;算出答錯懲罰時間
+					mov ax, errorCounter
+					mul PENALTY_TIME
+					movzx eax, ax					
+					call WriteDec
+
+					;輸出單位
+					mWrite <" 秒",0dh,0ah,0dh,0ah>
+
+					add totalTime, eax				;加上總時間的第二部分(懲罰時間)
+					mov ecx, totalTime				;將totalTime存到ecx(比較用)
+
+				;根據難度選擇要比較的最佳通關時間
+				cmp difficulty, 1
+				je compare_easy_best_time
+				cmp difficulty, 2
+				je compare_normal_best_time
+				cmp difficulty, 3
+				je compare_hard_best_time
+
+				;比較最佳時間
+				compare_easy_best_time:
+					cmp ecx, easyBestTime
+					jae show_best_time
+					mov easyBestTime, ecx			;如果所花時間比最佳時間還少，就更新最佳時間
+					mov ebx, easyBestTime			;將最佳時間存在ebx
+					jmp show_best_time				;跳到show_best_time
+
+				compare_normal_best_time:
+					cmp ecx, normalBestTime
+					jae	show_best_time
+					mov normalBestTime, ecx
+					mov ebx, normalBestTime
+					jmp show_best_time
+
+				compare_hard_best_time:
+					cmp ecx, hardBestTime
+					jae	show_best_time
+					mov hardBestTime, ecx
+					mov ebx, hardBestTime
+
+				;輸出最佳時間
+				show_best_time:	
+					mov eax, ebx				;將存在ebx內的最佳時間取出
+					mWrite "最佳通關時間為 "
+					call WriteDec
+
+					;輸出單位
+					mWrite	<" 秒",0dh,0ah,0dh,0ah>
+
+					jmp restart		;跳到restart
 
 		dead:
 			;清畫面
@@ -313,6 +400,7 @@ main PROC
 		mWrite <"2:中等",0dh,0ah,0dh,0ah>
 		mWrite <"3:困難",0dh,0ah,0dh,0ah>
 		mWrite <"4:遊戲說明",0dh,0ah,0dh,0ah>
+		mWrite <"5:退出遊戲",0dh,0ah,0dh,0ah>
 		mWrite "請輸入選項:"
 		ret
 	DrawMenu ENDP
