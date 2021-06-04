@@ -1,36 +1,43 @@
 INCLUDE irvine32.inc
 INCLUDE macros.inc
+INCLUDELIB winmm.lib
+
+;宣告副程式原型
+PlaySound PROTO, pszSound:PTR BYTE, hmod:DWORD, fdwSound:DWORD
 
 ;定義常數
 BUFFER_SIZE = 1000	;buffer的大小
 
 .data
 ;讀檔用變數
-EASY_FILE_NAME BYTE "easy.txt", 0		;簡單難度的檔名
-NORMAL_FILE_NAME BYTE "normal.txt", 0	;普通難度的檔名
-HARD_FILE_NAME BYTE "hard.txt", 0		;困難難度的檔名
-fileName BYTE 100 DUP(0)				;檔名
-fileHandle Handle ?						;讀取/寫入檔案用
-buffer BYTE 100 DUP(0)					;儲存檔案內容
-temp BYTE ?								;儲存讀出的字元					
+EASY_FILE_NAME BYTE "easy.txt", 0				;簡單難度的檔名
+NORMAL_FILE_NAME BYTE "normal.txt", 0			;普通難度的檔名
+HARD_FILE_NAME BYTE "hard.txt", 0				;困難難度的檔名
+fileName BYTE 100 DUP(0)						;檔名
+fileHandle Handle ?								;讀取/寫入檔案用
+buffer BYTE 100 DUP(0)							;儲存檔案內容
+temp BYTE ?										;儲存讀出的字元					
+MENU_BGM_FILE_NAME BYTE "menu_bgm.wav", 0		;選單背景音樂的檔名
+GAME_BGM_FILE_NAME BYTE "game_bgm.wav", 0		;遊玩過程背景音樂的檔名
+END_BGM_FILE_NAME BYTE "end_bgm.wav", 0			;結算背景音樂的檔名
 
 ;遊戲用變數
-input BYTE BUFFER_SIZE DUP(0)			;使用者輸入		
-SECOND_FACTOR WORD 1000					;用來將毫秒換成秒
-PENALTY_TIME WORD 10					;答錯懲罰時間
-startTime DWORD ?						;開始時間
-lastTime DWORD ?						;上次答題時間
-counter DWORD 0							;記錄通過的關卡數
-health DWORD 5h							;玩家血量
-lostHealth DWORD 0						;失去的血量
-wordLength	DWORD 0						;單字長度
-again BYTE 2 DUP(0)						;檢查是否要重新開始
-errorCounter WORD 0					;記錄答錯次數
-totalTime DWORD 0						;記錄通關總時間
-difficulty BYTE ?						;記錄這次選的難度
-easyBestTime DWORD 9999					;簡單難度的最佳通關時間
-normalBestTime DWORD 9999				;普通難度的最佳通關時間
-hardBestTime DWORD 9999					;困難難度的最佳通關時間
+input BYTE BUFFER_SIZE DUP(0)					;使用者輸入		
+SECOND_FACTOR WORD 1000							;用來將毫秒換成秒
+PENALTY_TIME WORD 10							;答錯懲罰時間
+startTime DWORD ?								;開始時間
+lastTime DWORD ?								;上次答題時間
+counter DWORD 0									;記錄通過的關卡數
+health DWORD 5h									;玩家血量
+lostHealth DWORD 0								;失去的血量
+wordLength	DWORD 0								;單字長度
+again BYTE 2 DUP(0)								;檢查是否要重新開始
+errorCounter WORD 0								;記錄答錯次數
+totalTime DWORD 0								;記錄通關總時間
+difficulty BYTE ?								;記錄這次選的難度
+easyBestTime DWORD 9999							;簡單難度的最佳通關時間
+normalBestTime DWORD 9999						;普通難度的最佳通關時間
+hardBestTime DWORD 9999							;困難難度的最佳通關時間
 
 .code
 main PROC
@@ -38,6 +45,10 @@ main PROC
 	menu:
 		;清畫面
 		call Clrscr
+
+		;播放選單背景音樂
+		INVOKE PlaySound, NULL, NULL, 20001H						;暫停上一首音樂
+		INVOKE PlaySound, OFFSET MENU_BGM_FILE_NAME, NULL, 20009H	;播放音樂
 
 		;畫出選單
 		call DrawMenu
@@ -119,6 +130,10 @@ main PROC
 		call GetMseconds
 		mov startTime, eax
 		mov lastTime, eax
+
+		;播放遊玩過程背景音樂
+		INVOKE PlaySound, NULL, NULL, 20001H						;暫停上一首音樂
+		INVOKE PlaySound, OFFSET GAME_BGM_FILE_NAME, NULL, 20009H	;播放音樂 
 
 		;遊戲開始
 		game_start:
@@ -246,6 +261,10 @@ main PROC
 			;清畫面
 			call Clrscr
 
+			;播放選單背景音樂
+			INVOKE PlaySound, NULL, NULL, 20001H						;暫停上一首音樂
+			INVOKE PlaySound, OFFSET END_BGM_FILE_NAME, NULL, 20009H	;播放音樂
+
 			;顯示遊玩結果
 			show_result:
 				;根據難度選擇不同的輸出
@@ -346,6 +365,10 @@ main PROC
 		dead:
 			;清畫面
 			call Clrscr
+
+			;播放選單背景音樂
+			INVOKE PlaySound, NULL, NULL, 20001H						;暫停上一首音樂
+			INVOKE PlaySound, OFFSET END_BGM_FILE_NAME, NULL, 20009H	;播放音樂
 
 			mWrite <"失敗",0dh,0ah,0dh,0ah>
 

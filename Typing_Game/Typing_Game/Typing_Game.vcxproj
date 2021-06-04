@@ -93,11 +93,11 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\irvine</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\masm32\include;C:\irvine</AdditionalLibraryDirectories>
       <AdditionalDependencies>user32.lib;irvine32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <MASM>
-      <IncludePaths>C:\irvine</IncludePaths>
+      <IncludePaths>C:\masm32\include;C:\irvine</IncludePaths>
     </MASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -114,11 +114,11 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\irvine</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\masm32\include;C:\irvine</AdditionalLibraryDirectories>
       <AdditionalDependencies>user32.lib;irvine32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <MASM>
-      <IncludePaths>C:\irvine</IncludePaths>
+      <IncludePaths>C:\masm32\include;C:\irvine</IncludePaths>
     </MASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
