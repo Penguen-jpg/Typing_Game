@@ -63,11 +63,11 @@ main PROC
 		ja menu
 
 		cmp eax, 1
-		je open_file1
+		je get_file1
 		cmp eax, 2
-		je open_file2
+		je get_file2
 		cmp eax, 3
-		je open_file3
+		je get_file3
 		cmp eax, 4
 		je show_rules
 		cmp eax, 5
@@ -78,7 +78,7 @@ main PROC
 		mov edi, 0
 
 		;根據選擇的難度選擇要開的檔案
-		open_file1:
+		get_file1:
 			;紀錄難度
 			mov difficulty, 1
 
@@ -86,21 +86,21 @@ main PROC
 			INVOKE Str_copy,
 				   ADDR EASY_FILE_NAME,
 				   ADDR fileName
-			jmp read_file
-		open_file2:
+			jmp open_file
+		get_file2:
 			mov difficulty, 2
 
 			INVOKE Str_copy,
 				   ADDR NORMAL_FILE_NAME,
 				   ADDR fileName
-			jmp read_file
-		open_file3:
+			jmp open_file
+		get_file3:
 			mov difficulty, 3
 
 			INVOKE Str_copy,
 				   ADDR HARD_FILE_NAME,
 				   ADDR fileName
-			jmp read_file
+			jmp open_file
 		show_rules:
 			call ShowRules
 			call ReadInt				;讀取輸入
@@ -108,8 +108,8 @@ main PROC
 			je menu						;輸入為1就跳回menu
 			jmp show_rules				;輸入其他的就跳回show_rules
 
-	;讀取檔案(題目)
-	read_file:
+	;開啟檔案(題目)
+	open_file:
 		mov edx, OFFSET fileName
 		call OpenInputFile
 		mov fileHandle, eax				;將eax內的Handle傳給fileHandle
@@ -120,7 +120,7 @@ main PROC
 		mWrite <"無法開啟檔案",0dh,0ah> ;錯誤訊息
 		jmp quit						;無效就跳到quit
 
-	;讀檔成功
+	;開檔成功
 	file_ok:
 		;通過檢查
 		buf_size_ok:
