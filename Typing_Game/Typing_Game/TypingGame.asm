@@ -16,39 +16,49 @@ HARD_FILE_NAME BYTE "hard.txt", 0				;困難難度的檔名
 fileName BYTE 100 DUP(0)						;檔名
 fileHandle Handle ?								;讀取/寫入檔案用
 buffer BYTE 100 DUP(0)							;儲存檔案內容
-temp BYTE ?										;儲存讀出的字元					
+temp BYTE ?										;儲存讀出的字元				
+START_BGM_FILE_NAME BYTE "start_bgm.wav", 0		;開頭背景音樂的檔名
 MENU_BGM_FILE_NAME BYTE "menu_bgm.wav", 0		;選單背景音樂的檔名
 GAME_BGM_FILE_NAME BYTE "game_bgm.wav", 0		;遊玩過程背景音樂的檔名
 END_BGM_FILE_NAME BYTE "end_bgm.wav", 0			;結算背景音樂的檔名
+FAIL_BGM_FILE_NAME BYTE "fail_bgm.wav", 0		;失敗背景音樂的檔名
 
 ;遊戲用變數
-input BYTE BUFFER_SIZE DUP(0)					;使用者輸入		
-SECOND_FACTOR WORD 1000							;用來將毫秒換成秒
-PENALTY_TIME WORD 10							;答錯懲罰時間
-startTime DWORD ?								;開始時間
-lastTime DWORD ?								;上次答題時間
-counter DWORD 0									;記錄通過的關卡數
-health DWORD 5h									;玩家血量
-lostHealth DWORD 0								;失去的血量
-wordLength	DWORD 0								;單字長度
-again BYTE 2 DUP(0)								;檢查是否要重新開始
-errorCounter WORD 0								;記錄答錯次數
-totalTime DWORD 0								;記錄通關總時間
-difficulty BYTE ?								;記錄這次選的難度
-easyBestTime DWORD 9999							;簡單難度的最佳通關時間
-normalBestTime DWORD 9999						;普通難度的最佳通關時間
-hardBestTime DWORD 9999							;困難難度的最佳通關時間
+input BYTE BUFFER_SIZE DUP(0)			;使用者輸入		
+SECOND_FACTOR WORD 1000					;用來將毫秒換成秒
+PENALTY_TIME WORD 10					;答錯懲罰時間
+startTime DWORD ?						;開始時間
+lastTime DWORD ?						;上次答題時間
+counter DWORD 0							;記錄通過的關卡數
+health DWORD 5h							;玩家血量
+lostHealth DWORD 0						;失去的血量
+wordLength	DWORD 0						;單字長度
+again BYTE 2 DUP(0)						;檢查是否要重新開始
+errorCounter WORD 0						;記錄答錯次數
+totalTime DWORD 0						;記錄通關總時間
+difficulty BYTE ?						;記錄這次選的難度
+easyBestTime DWORD 9999					;簡單難度的最佳通關時間
+normalBestTime DWORD 9999				;普通難度的最佳通關時間
+hardBestTime DWORD 9999					;困難難度的最佳通關時間
 
 .code
 main PROC
+	
+		;播放開頭背景音樂
+		INVOKE PlaySound, NULL, NULL, 20001h						;暫停上一首音樂
+		INVOKE PlaySound, OFFSET START_BGM_FILE_NAME, NULL, 20001h	;播放音樂
+		
+		;開始動畫
+		call DrawGameTitle
+
 	;選單
 	menu:
-		;清畫面
-		call Clrscr
-
 		;播放選單背景音樂
 		INVOKE PlaySound, NULL, NULL, 20001H						;暫停上一首音樂
-		INVOKE PlaySound, OFFSET MENU_BGM_FILE_NAME, NULL, 20009H	;播放音樂
+		INVOKE PlaySound, OFFSET MENU_BGM_FILE_NAME, NULL, 20009h	;播放音樂
+	
+		;清畫面
+		call Clrscr
 
 		;畫出選單
 		call DrawMenu
@@ -101,6 +111,8 @@ main PROC
 				   ADDR HARD_FILE_NAME,
 				   ADDR fileName
 			jmp open_file
+
+		;顯示規則
 		show_rules:
 			call ShowRules
 			call ReadInt				;讀取輸入
@@ -120,7 +132,7 @@ main PROC
 		mWrite <"無法開啟檔案",0dh,0ah> ;錯誤訊息
 		jmp quit						;無效就跳到quit
 
-	;開檔成功
+	;讀檔成功
 	file_ok:
 		;通過檢查
 		buf_size_ok:
@@ -133,12 +145,12 @@ main PROC
 
 		;播放遊玩過程背景音樂
 		INVOKE PlaySound, NULL, NULL, 20001H						;暫停上一首音樂
-		INVOKE PlaySound, OFFSET GAME_BGM_FILE_NAME, NULL, 20009H	;播放音樂 
+		INVOKE PlaySound, OFFSET GAME_BGM_FILE_NAME, NULL, 20009H  ;播放音樂 
 
 		;遊戲開始
 		game_start:
 			cmp counter, 25
-			je game_end				;如果通關完成就跳到game_end
+			je game_end					;如果通關完成就跳到game_end
 
 			;初始化esi及取回fileHandle
 			init:
@@ -163,8 +175,6 @@ main PROC
 			finish_reading:
 				mov wordLength, esi		;儲存單字長度
 				inc counter
-				;mov eax, counter		;debug用
-				;call WriteDec
 
 			;清畫面
 			call Clrscr
@@ -263,7 +273,16 @@ main PROC
 
 			;播放選單背景音樂
 			INVOKE PlaySound, NULL, NULL, 20001H						;暫停上一首音樂
-			INVOKE PlaySound, OFFSET END_BGM_FILE_NAME, NULL, 20009H	;播放音樂
+			INVOKE PlaySound, OFFSET END_BGM_FILE_NAME, NULL, 20009h	;播放音樂
+
+			;顯示恭喜標語
+			mWrite <"                                 _         _       _   _                 ",0dh,0ah>              
+			mWrite <"  ___ ___  _ __   __ _ _ __ __ _| |_ _   _| | __ _| |_(_) ___  _ __  ___ ",0dh,0ah> 
+			mWrite <" / __/ _ \| '_ \ / _` | '__/ _` | __| | | | |/ _` | __| |/ _ \| '_ \/ __|",0dh,0ah> 
+			mWrite <"| (_| (_) | | | | (_| | | | (_| | |_| |_| | | (_| | |_| | (_) | | | \__ \",0dh,0ah> 
+			mWrite <" \___\___/|_| |_|\__, |_|  \__,_|\__|\__,_|_|\__,_|\__|_|\___/|_| |_|___/",0dh,0ah> 
+			mWrite <"                 |___/                                                   ",0dh,0ah> 
+			call Crlf
 
 			;顯示遊玩結果
 			show_result:
@@ -362,16 +381,34 @@ main PROC
 
 					jmp restart		;跳到restart
 
+		;玩家死亡(剩餘血量為0)
 		dead:
+			;播放選單背景音樂
+			INVOKE PlaySound, NULL, NULL, 20001H						;暫停上一首音樂
+			INVOKE PlaySound, OFFSET FAIL_BGM_FILE_NAME, NULL, 20001h	;播放音樂
+
 			;清畫面
 			call Clrscr
 
-			;播放選單背景音樂
-			INVOKE PlaySound, NULL, NULL, 20001H						;暫停上一首音樂
-			INVOKE PlaySound, OFFSET END_BGM_FILE_NAME, NULL, 20009H	;播放音樂
-
-			mWrite <"失敗",0dh,0ah,0dh,0ah>
-
+			;顯示失敗標語
+			mWrite <" _______    ___       __   __      ",0dh,0ah>
+			mov eax, 600
+			call Delay
+			mWrite <"|   ____|  /   \     |  | |  |     ",0dh,0ah>
+			mov eax, 600
+			call Delay
+			mWrite <"|  |__    /  ^  \    |  | |  |     ",0dh,0ah>
+			mov eax, 600
+			call Delay
+			mWrite <"|   __|  /  /_\  \   |  | |  |     ",0dh,0ah>
+			mov eax, 600
+			call Delay
+			mWrite <"|  |    /  _____  \  |  | |  `----.",0dh,0ah>
+			mov eax, 600
+			call Delay
+			mWrite <"|__|   /__/     \__\ |__| |_______|",0dh,0ah>
+			mov eax, 1000
+			call Delay
 
 		;詢問是否要重新開始
 		restart:
@@ -387,6 +424,7 @@ main PROC
 				
 			;輸入是否要重新開始
 			restart_input:
+				call Crlf
 				mWrite <"重新開始(Y/N)?",0dh,0ah>	
 				mov edx, OFFSET again
 				mov ecx, SIZEOF again
@@ -405,9 +443,93 @@ main PROC
 
 	;讀檔失敗或程式執行結束
 	quit:
-		exit				;結束程式
+		exit								;結束程式
 
 	;procedures
+
+	;-------------------------------------------------------------
+	; DrawTitle PROC
+	;
+	; 畫出標題動畫
+	; Receives: 沒有
+	; Returns: 不回傳
+	;-------------------------------------------------------------
+
+	DrawGameTitle PROC
+		
+		mov eax,  7 + (black * 16)         ; 深灰字黑底
+		call setTextColor 
+		mWrite <".___________.____    ____ .______    __       _______.___________.",0dh,0ah>
+		mov eax, 600					   ; 延遲0.6秒
+		call Delay
+		mWrite <"|           |\   \  /   / |   _  \  |  |     /       |           |",0dh,0ah>
+		mov eax, 600					   ; 延遲0.6秒
+		call Delay
+		mWrite <"`---|  |----` \   \/   /  |  |_)  | |  |    |   (----`---|  |----`",0dh,0ah>
+		mov eax, 600					   ; 延遲0.6秒
+		call Delay
+		mWrite <"    |  |       \_    _/   |   ___/  |  |     \   \       |  |     ",0dh,0ah>
+		mov eax, 600					   ; 延遲0.6秒
+		call Delay
+		mWrite <"    |  |         |  |     |  |      |  | .----)   |      |  |     ",0dh,0ah>
+		mov eax, 600					   ; 延遲0.6秒
+		call Delay
+		mWrite <"    |__|         |__|     | _|      |__| |_______/       |__|     ",0dh,0ah>
+
+		mov eax, 1000				 	  ; 延遲1秒
+		call Delay
+		mov eax, 8 + (black * 16)         ; 淺灰字黑底
+		call setTextColor
+		mGotoxy 0,0		                  ;將游標移到(第0行 第一列)
+		mWrite <".___________.____    ____ .______    __       _______.___________.",0dh,0ah>
+		mov eax, 600					   ; 延遲0.6秒
+		call Delay
+		mWrite <"|           |\   \  /   / |   _  \  |  |     /       |           |",0dh,0ah>
+		mov eax, 600					   ; 延遲0.6秒
+		call Delay
+		mWrite <"`---|  |----` \   \/   /  |  |_)  | |  |    |   (----`---|  |----`",0dh,0ah>
+		mov eax, 600					   ; 延遲0.6秒
+		call Delay
+		mWrite <"    |  |       \_    _/   |   ___/  |  |     \   \       |  |     ",0dh,0ah>
+		mov eax, 600					   ; 延遲0.6秒
+		call Delay
+		mWrite <"    |  |         |  |     |  |      |  | .----)   |      |  |     ",0dh,0ah>
+		mov eax, 600					   ; 延遲0.6秒
+		call Delay
+		mWrite <"    |__|         |__|     | _|      |__| |_______/       |__|     ",0dh,0ah>
+
+		mov eax, 1000				 	  ; 延遲1秒
+		call Delay
+		mov eax, white + (black * 16)     ; 白字黑底
+		call setTextColor
+		mGotoxy 0,0		                  ;將游標移到(第0行 第一列)
+		mWrite <".___________.____    ____ .______    __       _______.___________.",0dh,0ah>
+		mov eax, 600					   ; 延遲0.6秒
+		call Delay
+		mWrite <"|           |\   \  /   / |   _  \  |  |     /       |           |",0dh,0ah>
+		mov eax, 600					   ; 延遲0.6秒
+		call Delay
+		mWrite <"`---|  |----` \   \/   /  |  |_)  | |  |    |   (----`---|  |----`",0dh,0ah>
+		mov eax, 600					   ; 延遲0.6秒
+		call Delay
+		mWrite <"    |  |       \_    _/   |   ___/  |  |     \   \       |  |     ",0dh,0ah>
+		mov eax, 600					   ; 延遲0.6秒
+		call Delay
+		mWrite <"    |  |         |  |     |  |      |  | .----)   |      |  |     ",0dh,0ah>
+		mov eax, 600					   ; 延遲0.6秒
+		call Delay
+		mWrite <"    |__|         |__|     | _|      |__| |_______/       |__|     ",0dh,0ah>
+		
+		;把文字顏色設回來
+		mov eax, white + (black * 16)
+		call setTextColor
+		
+		mov eax, 1000
+		call Delay
+		call Crlf
+		call WaitMsg
+		ret
+	DrawGameTitle ENDP
 
 	;-------------------------------------------------------------
 	; DrawMenu PROC
